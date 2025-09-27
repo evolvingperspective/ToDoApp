@@ -3,14 +3,13 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  // Paste your config from Firebase Console here
-  apiKey: "your-api-key",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "your-app-id"
-};
+    apiKey: "AIzaSyCvTE_01gl4JqTbnWazAe6wHZuLcWfAvBw",
+    authDomain: "kanban-todo-app-42ade.firebaseapp.com",
+    projectId: "kanban-todo-app-42ade",
+    storageBucket: "kanban-todo-app-42ade.firebasestorage.app",
+    messagingSenderId: "776076010703",
+    appId: "1:776076010703:web:b215a18c359bafe76243ba"
+  };
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
