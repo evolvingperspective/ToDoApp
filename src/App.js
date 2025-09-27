@@ -1,39 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Flag, Calendar, Edit3, X, LogOut, User } from 'lucide-react';
-import { auth, db } from './firebase';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut,
-  onAuthStateChanged 
-} from 'firebase/auth';
-import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  query, 
-  where,
-  orderBy 
-} from 'firebase/firestore';
+import { Plus, Flag, Calendar, Edit3, X } from 'lucide-react';
 
 const KanbanTodoApp = () => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Initialize with empty tasks for production
   const [tasks, setTasks] = useState([]);
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [filterBy, setFilterBy] = useState('all');
   const [sortBy, setSortBy] = useState('created');
-
-  // Auth states
-  const [showAuth, setShowAuth] = useState(false);
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState('');
 
   // Category icons mapping
   const categoryIcons = {
@@ -47,109 +21,32 @@ const KanbanTodoApp = () => {
     high: 'bg-gradient-to-br from-rose-100 to-pink-200 border-rose-200 bg-blend-multiply'
   };
 
-  // Auth listener
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-      if (user) {
-        loadTasks(user.uid);
-      } else {
-        setTasks([]);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Load tasks from Firestore
-  const loadTasks = async (userId) => {
-    try {
-      const tasksQuery = query(
-        collection(db, 'tasks'), 
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
-      );
-      const querySnapshot = await getDocs(tasksQuery);
-      const loadedTasks = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date()
-      }));
-      setTasks(loadedTasks);
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-    }
+  // Add new task
+  const addTask = (taskData) => {
+    const newTask = {
+      id: Date.now(),
+      ...taskData,
+      createdAt: new Date(),
+      alarmSet: taskData.dueDate ? true : false
+    };
+    setTasks([...tasks, newTask]);
+    setIsAddingTask(false);
   };
 
-  // Authentication functions
-  const handleAuth = async (e) => {
-    e.preventDefault();
-    setAuthError('');
-    
-    try {
-      if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        await createUserWithEmailAndPassword(auth, email, password);
-      }
-      setShowAuth(false);
-      setEmail('');
-      setPassword('');
-    } catch (error) {
-      setAuthError(error.message);
-    }
+  // Update task
+  const updateTask = (id, updates) => {
+    setTasks(tasks.map(task => 
+      task.id === id ? { ...task, ...updates } : task
+    ));
+    setEditingTask(null);
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
+  // Delete task
+  const deleteTask = (id) => {
+    setTasks(tasks.filter(task => task.id !== id));
   };
 
-  // Task functions
-  const addTask = async (taskData) => {
-    if (!user) return;
-    
-    try {
-      const newTask = {
-        ...taskData,
-        userId: user.uid,
-        createdAt: new Date(),
-        alarmSet: taskData.dueDate ? true : false
-      };
-      
-      const docRef = await addDoc(collection(db, 'tasks'), newTask);
-      setTasks([{ id: docRef.id, ...newTask }, ...tasks]);
-      setIsAddingTask(false);
-    } catch (error) {
-      console.error('Error adding task:', error);
-    }
-  };
-
-  const updateTask = async (id, updates) => {
-    try {
-      await updateDoc(doc(db, 'tasks', id), updates);
-      setTasks(tasks.map(task => 
-        task.id === id ? { ...task, ...updates } : task
-      ));
-      setEditingTask(null);
-    } catch (error) {
-      console.error('Error updating task:', error);
-    }
-  };
-
-  const deleteTask = async (id) => {
-    try {
-      await deleteDoc(doc(db, 'tasks', id));
-      setTasks(tasks.filter(task => task.id !== id));
-    } catch (error) {
-      console.error('Error deleting task:', error);
-    }
-  };
-
-  // Filter and sort tasks (same logic as before)
+  // Filter tasks
   const getFilteredTasks = () => {
     let filtered = [...tasks];
     
@@ -205,113 +102,28 @@ const KanbanTodoApp = () => {
     return filtered;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-200 via-blue-200 to-indigo-300 flex items-center justify-center">
-        <div className="text-lg text-gray-700">Loading...</div>
-      </div>
-    );
-  }
+  // Check for due alarms
+  useEffect(() => {
+    const checkAlarms = () => {
+      const now = new Date();
+      tasks.forEach(task => {
+        if (task.dueDate && task.alarmSet) {
+          const dueTime = new Date(task.dueDate);
+          if (dueTime <= now && dueTime > new Date(now.getTime() - 60000)) {
+            alert(`⏰ Task due: ${task.title}`);
+          }
+        }
+      });
+    };
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-200 via-blue-200 to-indigo-300 flex items-center justify-center p-6">
-        <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg">
-          <h1 className="text-2xl font-bold text-gray-700 mb-6 text-center">My Tasks</h1>
-          
-          {!showAuth ? (
-            <div className="space-y-4">
-              <button
-                onClick={() => { setShowAuth(true); setIsLogin(true); }}
-                className="w-full px-4 py-3 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => { setShowAuth(true); setIsLogin(false); }}
-                className="w-full px-4 py-3 border border-blue-500 text-blue-500 rounded hover:bg-blue-50"
-              >
-                Create Account
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleAuth} className="space-y-4">
-              <h2 className="text-lg font-medium text-center">
-                {isLogin ? 'Sign In' : 'Create Account'}
-              </h2>
-              
-              {authError && (
-                <div className="text-red-500 text-sm text-center">{authError}</div>
-              )}
-              
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-                required
-              />
-              
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-                required
-              />
-              
-              <button
-                type="submit"
-                className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                {isLogin ? 'Sign In' : 'Create Account'}
-              </button>
-              
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="text-blue-500 hover:underline text-sm"
-                >
-                  {isLogin ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
-                </button>
-              </div>
-              
-              <button
-                type="button"
-                onClick={() => setShowAuth(false)}
-                className="w-full px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
-              >
-                Back
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
-    );
-  }
+    const interval = setInterval(checkAlarms, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [tasks]);
 
   return (
     <div className="p-6 max-w-4xl mx-auto min-h-screen bg-gradient-to-br from-purple-200 via-blue-200 to-indigo-300">
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-700">My Tasks</h1>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <User size={16} />
-              {user.email}
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-800"
-            >
-              <LogOut size={16} />
-              Sign Out
-            </button>
-          </div>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-700 mb-4">My Tasks</h1>
         
         {/* Controls */}
         <div className="flex flex-wrap gap-2 mb-4">
@@ -416,7 +228,6 @@ const KanbanTodoApp = () => {
   );
 };
 
-// TaskCard and TaskModal components remain the same as before
 const TaskCard = ({ task, onEdit, onDelete, onUpdate, categoryIcons, priorityColors }) => {
   const toggleFlag = () => {
     onUpdate(task.id, { flagged: !task.flagged });
