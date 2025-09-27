@@ -2,8 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Flag, Calendar, Edit3, X } from 'lucide-react';
 
 const KanbanTodoApp = () => {
-  // Initialize with empty tasks for production
-  const [tasks, setTasks] = useState([]);
+  // Initialize with empty tasks - force clear existing data
+  const [tasks, setTasks] = useState(() => {
+    // Clear any existing saved tasks
+    window.todoAppTasks = [];
+    return [];
+  });
+
+  // Save tasks to window object for persistence
+  useEffect(() => {
+    window.todoAppTasks = tasks;
+  }, [tasks]);
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [filterBy, setFilterBy] = useState('all');
@@ -52,6 +61,7 @@ const KanbanTodoApp = () => {
     
     switch(filterBy) {
       case 'high': filtered = filtered.filter(t => t.priority === 'high'); break;
+      case 'mid': filtered = filtered.filter(t => t.priority === 'mid'); break;
       case 'low': filtered = filtered.filter(t => t.priority === 'low'); break;
       case 'flagged': filtered = filtered.filter(t => t.flagged); break;
       case 'alarm': filtered = filtered.filter(t => t.dueDate); break;
@@ -320,6 +330,16 @@ const TaskModal = ({ task, onSave, onCancel, categoryIcons }) => {
         
         <div className="space-y-4">
           <div>
+            <label className="block text-sm font-medium mb-1">Notes (optional)</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({...formData, notes: e.target.value})}
+              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 h-24 resize-y"
+              placeholder="Add any additional notes..."
+            />
+          </div>
+
+          <div>
             <label className="block text-sm font-medium mb-1">Title</label>
             <input
               type="text"
@@ -366,16 +386,6 @@ const TaskModal = ({ task, onSave, onCancel, categoryIcons }) => {
               value={formData.dueDate}
               onChange={(e) => setFormData({...formData, dueDate: e.target.value})}
               className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Notes (optional)</label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({...formData, notes: e.target.value})}
-              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 h-24 resize-y"
-              placeholder="Add any additional notes..."
             />
           </div>
 
